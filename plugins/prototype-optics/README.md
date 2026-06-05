@@ -1,22 +1,62 @@
 # prototype-optics
 
-A Claude Code **plugin** for prototyping UIs using **only** the RoleModel Optics
-design system. Three deterministic `PreToolUse` hooks make design drift impossible:
-a non-compliant file can't be saved.
+A Claude Code **plugin** for prototyping UIs with Claude using **only** the
+RoleModel Optics design system.
 
-- **Value guard** — colors and token-backed properties must be `var(--op-*)`;
-  raw hex/`rgb()`/named colors and raw lengths are rejected on every property;
-  category correctness; surface ↔ on-surface text pairing; sizes via the Optics
-  sizing scale `calc(N * var(--op-size-unit))`.
-- **Classname guard** — every HTML `class="…"` must be a real Optics class
-  (parsed from `vendor/optics.css`), carry a configured prefix, or be allow-listed.
-  Typos and invented classes are rejected with suggestions.
-- **BEM structure guard** — a `block__element` class must sit inside an element
-  with the `block` class (e.g. `text-pair__title` only inside `.text-pair`),
-  for real blocks (defined in the bundle or under your prefix). HTML, on save.
+## What it does
 
-Unlike a bare skill, this plugin ships the hooks declaratively (`hooks/hooks.json`),
-so installing it registers all three guards automatically — no `settings.json` editing.
+prototype-optics makes design drift impossible by holding Claude to the RoleModel
+Optics design system as it builds, instead of letting off-system code through to
+be caught later in review. As Claude writes and edits, three guards inspect each
+change and block anything off-system — and because the block reason is handed
+back, Claude simply corrects and retries until the work is compliant, without you
+having to flag it.
+
+- **The value guard governs colors and sizes.** Every color and dimension must
+  come from an Optics token, so raw hex, `rgb()`, named colors, and fixed pixel
+  sizes are rejected everywhere. It also checks that a token fits the property
+  it's used on, and that text on a colored surface uses that surface's matching
+  text color.
+- **The classname guard governs HTML classes.** Every class must be a real Optics
+  class, one of your project's configured prefixes, or an explicitly allowed
+  exception — typos and invented classes are turned away with suggestions.
+- **The BEM structure guard governs nesting.** A component's element piece must
+  sit inside the component it belongs to, so the markup structure stays
+  consistent with how Optics is built.
+
+Together they mean a prototype is correct-by-construction on Optics — not
+"mostly on-brand," but provably so.
+
+## When to use it
+
+Reach for prototype-optics whenever you want Claude to build browser prototypes
+that can't quietly wander off the design system. Which of the three modes you
+pick depends on how much room the work needs.
+
+Use **`optics-only`** when nothing off-Optics is acceptable — for example,
+building a canonical component gallery or a reference screen that has to be 100%
+stock Optics, where even a one-off custom class would be a defect.
+
+Use **`prefixed`** (the default) for everyday prototyping, when a screen mostly
+composes Optics components but needs a little bespoke structure Optics has no
+class for — say, a custom sidebar rail. You namespace those few pieces under your
+project's prefix (`bk-rail`), while every value still has to be a pure Optics
+token, so the custom bits stay disciplined.
+
+Use **`theme`** for brand or theme exploration — for instance, previewing the
+whole UI re-skinned in a client's brand color for a pitch. You flip to `theme`
+and redefine a seed token like the primary hue (`--op-color-primary-h`), and the
+entire derived scale shifts with it, all without leaving Optics.
+
+## How it's built
+
+It works as a set of guardrails that sit between Claude and your files while it
+prototypes. Every change Claude tries to make is checked against the design
+system before it's allowed through — if something doesn't comply, the change is
+refused and the reason is handed back to Claude, which corrects it and tries
+again, on its own. The guardrails learn what's allowed from the project's own
+copy of the Optics design system, and they stay completely dormant in projects
+that haven't opted in, so turning the plugin on everywhere is harmless.
 
 ## Install
 
@@ -25,9 +65,7 @@ so installing it registers all three guards automatically — no `settings.json`
 /plugin install prototype-optics@zoopmaster
 ```
 
-Then invoke `/prototype-optics` in any project to scaffold the guardrails. The
-hooks **fail open** in projects you haven't scaffolded, so installing globally is
-safe.
+Then invoke `/prototype-optics` in any project to scaffold the guardrails.
 
 ## Layout
 

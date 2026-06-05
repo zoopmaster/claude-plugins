@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>prototype-optics</title>
+  <link rel="stylesheet" href="../vendor/optics.css">
+  <style>
+    body {
+      font-family: var(--op-font-family);
+      line-height: var(--op-line-height-base);
+      background-color: var(--op-color-neutral-plus-eight);
+      color: var(--op-color-neutral-on-plus-eight);
+      margin: 0;
+      padding: var(--op-space-large);
+    }
+    main { max-width: calc(190 * var(--op-size-unit)); margin: 0 auto; }
+    h2 {
+      font-size: var(--op-font-x-large);
+      font-weight: var(--op-font-weight-bold);
+      margin-top: var(--op-space-2x-large);
+      margin-bottom: var(--op-space-small);
+    }
+    pre {
+      background-color: var(--op-color-neutral-minus-max);
+      color: var(--op-color-neutral-on-minus-max);
+      padding: var(--op-space-small);
+      border-radius: var(--op-radius-medium);
+      overflow-x: auto;
+      font-size: var(--op-font-small);
+    }
+    table { width: 100%; }
+  </style>
+</head>
+<body>
+  <main class="flex flex-col gap-md">
+
+    <header class="text-pair">
+      <p class="text-pair__title text-pair__title--large">prototype-optics</p>
+      <p class="text-pair__subtitle">Build browser prototypes that can't drift off the RoleModel Optics design system.</p>
+    </header>
+
+    <p>Three deterministic <code>PreToolUse</code> hooks run on every <code>Write</code>/<code>Edit</code>. Anything off-system is hard-blocked (exit 2) and the reason is fed back to the agent to fix &mdash; so a non-compliant file can't be saved.</p>
+
+    <h2>The three guards</h2>
+    <div class="flex flex-wrap gap-md">
+      <div class="card card--padded card--shadow-small">
+        <div class="card__header"><span class="badge badge--primary">Value</span></div>
+        <div class="card__body">Colors &amp; sizes must be <code>var(--op-*)</code> tokens. No raw <code>#hex</code>, <code>rgb()</code>, or <code>12px</code> &mdash; anywhere.</div>
+      </div>
+      <div class="card card--padded card--shadow-small">
+        <div class="card__header"><span class="badge badge--info">Classname</span></div>
+        <div class="card__body">Every <code>class</code> must be a real Optics class, a configured prefix, or an allow-list entry. Typos are rejected with suggestions.</div>
+      </div>
+      <div class="card card--padded card--shadow-small">
+        <div class="card__header"><span class="badge badge--warning">BEM</span></div>
+        <div class="card__body">A BEM element <code>X__Y</code> must sit inside its block <code>X</code> &mdash; e.g. <code>card__header</code> only inside <code>.card</code>.</div>
+      </div>
+    </div>
+
+    <h2>The three modes</h2>
+    <table class="table table--default-density table--even-striped">
+      <thead>
+        <tr>
+          <th class="text-left">Mode</th>
+          <th class="text-left">Classes &amp; values</th>
+          <th class="text-left">Custom prefixes</th>
+          <th class="text-left">Token redefinition</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="badge">optics-only</span></td>
+          <td>Pure Optics or fail</td>
+          <td>No</td>
+          <td>No</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge--primary">prefixed</span> <span class="badge badge--pill">default</span></td>
+          <td>Optics + your prefix as <em>names</em>; values stay pure Optics</td>
+          <td>Yes (names only)</td>
+          <td>No</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge--info">theme</span></td>
+          <td>Everything in <em>prefixed</em></td>
+          <td>Yes</td>
+          <td>Seed tokens only (H/S, fonts, letter-spacing, input-height)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Examples</h2>
+
+    <div class="alert alert--notice">
+      <div class="alert__title">Allowed</div>
+      <div class="alert__description">
+<pre><code>.cta { color: var(--op-color-primary-base); padding: var(--op-space-medium); }
+&lt;button class=&quot;btn btn--primary&quot;&gt;Go&lt;/button&gt;</code></pre>
+      </div>
+    </div>
+
+    <div class="alert alert--danger">
+      <div class="alert__title">Blocked</div>
+      <div class="alert__description">
+<pre><code>.cta { color: #2f6fed; }   /* raw color -> use var(--op-color-*) */
+.cta { padding: 12px; }    /* raw length -> token or calc(N * var(--op-size-unit)) */
+&lt;div class=&quot;megamenu&quot;&gt;     /* not an Optics class */</code></pre>
+      </div>
+    </div>
+
+    <div class="alert alert--info">
+      <div class="alert__title">theme mode only</div>
+      <div class="alert__description">
+<pre><code>:root { --op-color-primary-h: 265; }   /* re-skin the whole scale from one seed */</code></pre>
+      </div>
+    </div>
+
+    <div class="divider divider--spacing-medium"></div>
+    <p>Set the mode in <code>.claude/optics-guard.json</code> &mdash; <code>{ "mode": "prefixed" }</code>. Pairs with the <code>optics-context</code> and <code>bem-structure</code> skills.</p>
+
+  </main>
+</body>
+</html>
