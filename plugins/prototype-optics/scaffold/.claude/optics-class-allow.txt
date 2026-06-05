@@ -1,0 +1,23 @@
+# Extra classes allowed by the Optics classname guard.
+# One class name per line. These are real Optics classes that the guard can't
+# auto-detect from vendor/optics.css — either they're canonical markup hooks
+# that Optics never styles, or they live in src/recipes/ (not bundled).
+#
+# Derived by diffing classes used in the @rolemodel/optics source (component
+# markup + recipes) against the classes defined in the bundle. Storybook demo
+# fixtures (app__*, card--login, *-demo, font-family-demo-*, ...) are
+# deliberately NOT included — they aren't part of the component API.
+
+# --- component markup hooks (used in Optics markup, not styled) ---
+breadcrumbs__separator
+sidebar__section-title
+
+# --- recipe classes (src/recipes/, shipped but not in the bundle) ---
+aligned-header__centered-suffix
+btn--pill-right
+icon--rotated-90
+icon--rotated-135
+sidebar--16six
+sidebar--domains
+sidebar__brand-label
+sidebar__footer

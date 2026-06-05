@@ -1,0 +1,7 @@
+/*
+  Optics tokens — single import for prototypes.
+  Vendored from @rolemodel/optics (src/core/tokens). Defines every --op-* token
+  in :root. Link this from a prototype's <head> to get the full token set.
+*/
+@import './base_tokens.css';
+@import './scale_color_tokens.css';

@@ -1,0 +1,19 @@
+{
+  "name": "zoopmaster",
+  "owner": {
+    "name": "zoopmaster"
+  },
+  "metadata": {
+    "description": "Claude Code plugins for design-system prototyping and UI tooling.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "prototype-optics",
+      "source": "./plugins/prototype-optics",
+      "description": "Prototype UIs using ONLY the RoleModel Optics design system, with two deterministic PreToolUse hooks that make design drift impossible.",
+      "category": "Design",
+      "tags": ["optics", "design-system", "prototyping", "css", "guardrails"]
+    }
+  ]
+}
