@@ -13,6 +13,11 @@
             "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks-bin/optics_classname_guard.py\"",
             "statusMessage": "Optics classname guard…"
+          },
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks-bin/optics_bem_guard.py\"",
+            "statusMessage": "Optics BEM structure guard…"
           }
         ]
       }

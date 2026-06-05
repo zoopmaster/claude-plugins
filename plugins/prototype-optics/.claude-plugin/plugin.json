@@ -1,9 +1,16 @@
 {
   "name": "prototype-optics",
-  "description": "Prototype UIs using ONLY the RoleModel Optics design system, with two deterministic PreToolUse hooks that make design drift impossible — every color/size resolves to an Optics token and every HTML class is a real Optics class (or your chosen prefix).",
-  "version": "1.0.0",
+  "description": "Prototype UIs using ONLY the RoleModel Optics design system, with three deterministic PreToolUse hooks that make design drift impossible \u2014 every color/size resolves to an Optics token, every HTML class is a real Optics class (or your chosen prefix), and BEM elements sit inside their block.",
+  "version": "1.1.0",
   "author": {
     "name": "zoopmaster"
   },
-  "keywords": ["optics", "design-system", "prototyping", "css", "guardrails", "tokens"]
+  "keywords": [
+    "optics",
+    "design-system",
+    "prototyping",
+    "css",
+    "guardrails",
+    "tokens"
+  ]
 }

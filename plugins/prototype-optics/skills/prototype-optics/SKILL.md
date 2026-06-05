@@ -1,11 +1,11 @@
 ---
 name: prototype-optics
-description: Prototype UIs using ONLY the RoleModel Optics design system, with two deterministic PreToolUse hooks that make design drift impossible — every color/size resolves to an Optics token and every HTML class is a real Optics class (or your chosen prefix). Use when starting an Optics browser prototype, or to scaffold the Optics guardrails into a project. Keywords: optics prototype, optics-only, design system guardrails, token enforcement, optometrist. Pairs with optics-context and bem-structure.
+description: Prototype UIs using ONLY the RoleModel Optics design system, with three deterministic PreToolUse hooks that make design drift impossible — every color/size resolves to an Optics token and every HTML class is a real Optics class (or your chosen prefix). Use when starting an Optics browser prototype, or to scaffold the Optics guardrails into a project. Keywords: optics prototype, optics-only, design system guardrails, token enforcement, optometrist. Pairs with optics-context and bem-structure.
 ---
 
 # prototype-optics
 
-Build browser prototypes that are **correct-by-construction** on Optics. Two
+Build browser prototypes that are **correct-by-construction** on Optics. Three
 deterministic hooks run on every `Write`/`Edit`/`MultiEdit` and hard-block
 (exit 2) anything off-system, so a non-compliant file can't be saved.
 
@@ -17,10 +17,15 @@ deterministic hooks run on every `Write`/`Edit`/`MultiEdit` and hard-block
   real Optics class (parsed from `vendor/optics.css`), carry a configured prefix,
   or be listed in `.claude/optics-class-allow.txt`. Typos and invented classes
   are rejected with suggestions.
+- **BEM structure guard** (`optics_bem_guard.py`, HTML on `Write`): a BEM element
+  class `X__Y` must appear inside an element with the block class `X` — e.g.
+  `text-pair__title` only inside `.text-pair`. Enforced for real blocks (a class
+  defined in the bundle, or under your prefix); irregular Optics blocks with no
+  block class (`app__*`, `icon--*`) are skipped.
 
 ## How the hooks are installed
 
-When this plugin is installed, Claude Code **auto-registers both hooks** from
+When this plugin is installed, Claude Code **auto-registers all three hooks** from
 `hooks/hooks.json` — no `settings.json` editing required. The hooks run the
 guard scripts from `${CLAUDE_PLUGIN_ROOT}/hooks-bin/` on every edit, in every
 project. They **fail open** (exit 0) in any project that has not been scaffolded
