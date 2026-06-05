@@ -19,7 +19,7 @@ Or install a specific plugin directly:
 
 | Plugin | Description |
 |--------|-------------|
-| **[prototype-optics](plugins/prototype-optics)** | Prototype UIs using ONLY the RoleModel Optics design system. Two deterministic `PreToolUse` hooks make design drift impossible — every color/size resolves to an Optics token and every HTML class is a real Optics class. |
+| **[prototype-optics](plugins/prototype-optics)** | Prototype UIs with Claude using ONLY the RoleModel Optics design system. Three deterministic `PreToolUse` hooks make design drift impossible — every color/size resolves to an Optics token, every HTML class is real Optics, and BEM nesting is enforced. Three modes (optics-only / prefixed / theme) trade strictness for room to add bespoke classes or explore a brand. |
 
 ## Adding a plugin
 
