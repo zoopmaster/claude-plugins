@@ -22,44 +22,31 @@ import os
 import re
 import sys
 
+from _optics_config import CONFIG_FILE, resolve_mode, resolve_prefixes
+
 GATED_EXTENSIONS = (".html", ".htm")
 
 # Prefixes for your own (non-Optics) classes, configurable in optics-guard.json
 # via "allowedPrefixes" (bare prefixes, e.g. ["bk"]). The same prefix namespaces
-# both class names (`bk-card`) and the custom properties that hold raw values
-# (`--bk-x`, enforced by the token guard). In strict mode these are ignored, so
-# ONLY real Optics classes (bundle + extra-allow file) pass.
-DEFAULT_PREFIXES = ("gx", "demo", "bk")
+# both class names (`bk-card`) and custom property names (`--bk-pad`), whose
+# values must still be pure Optics (enforced by the token guard — no raw values).
+# In optics-only mode prefixes are ignored, so ONLY real Optics classes (bundle +
+# extra-allow file) pass.
 
 
 def allowed_prefixes(repo_root):
-    try:
-        cfg = json.load(open(os.path.join(repo_root, CONFIG_FILE), encoding="utf-8"))
-        ps = cfg.get("allowedPrefixes")
-        if isinstance(ps, list) and ps:
-            return tuple(str(p).rstrip("-") + "-" for p in ps)
-    except (OSError, ValueError):
-        pass
-    return tuple(p + "-" for p in DEFAULT_PREFIXES)
+    # Class-name form: `bk-`. Shared resolver owns the parse + defaults.
+    return tuple(p + "-" for p in resolve_prefixes(repo_root))
 
-# Persistent toggle. Flip "classnameStrict" here to enforce Optics-only classes;
-# no env wiring needed. The env var OPTICS_CLASSNAME_STRICT, if set, overrides it.
-CONFIG_FILE = ".claude/optics-guard.json"
-TRUE = ("1", "true", "yes", "on")
-FALSE = ("0", "false", "no", "off")
+# Shared `mode` knob (.claude/optics-guard.json -> "mode", env OPTICS_MODE).
+# Strict here means the optics-only floor: the prefix allowlist is disabled, so
+# ONLY real Optics classes (bundle + extra-allow file) pass. "prefixed"/"theme"
+# both allow the configured class prefixes — prefixes are purely a classname
+# concern and behave identically in those two modes.
 
 
 def strict_mode(repo_root):
-    env = os.environ.get("OPTICS_CLASSNAME_STRICT", "").strip().lower()
-    if env in TRUE:
-        return True
-    if env in FALSE:
-        return False
-    try:
-        cfg = json.load(open(os.path.join(repo_root, CONFIG_FILE), encoding="utf-8"))
-        return bool(cfg.get("classnameStrict", False))
-    except (OSError, ValueError):
-        return False
+    return resolve_mode(repo_root) == "optics-only"
 
 # Where to learn the real Optics class universe.
 BUNDLE = "vendor/optics.css"

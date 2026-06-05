@@ -46,7 +46,7 @@ The suites run the guards against the bundled `scaffold/` as the project root
 (stdlib-only, no deps):
 
 ```
-python3 tests/run_tests.py            # value guard (39 cases)
+python3 tests/run_tests.py            # value guard (72 cases)
 python3 tests/run_classname_tests.py  # classname guard (19 cases)
 python3 tests/run_bem_tests.py        # BEM structure guard (14 cases)
 ```
@@ -58,11 +58,35 @@ those cases flip to exit 0 and the suite fails.
 ## Config (`.claude/optics-guard.json`)
 
 ```json
-{ "classnameStrict": false, "allowedPrefixes": ["bk"] }
+{ "mode": "prefixed", "allowedPrefixes": ["bk"] }
 ```
 
-The chosen prefix namespaces both your class names (`bk-card`) and custom
-properties holding fixed raw values (`--bk-x`). `classnameStrict: true` forbids
-even prefixed classes (pure Optics only).
+`allowedPrefixes` lists your project's own (non-Optics) class/custom-property
+prefixes. **There is no default** — the scaffold ships none, and a prefix is
+chosen at setup (detect the project's dominant existing pattern, else a short
+candidate, confirmed with you; see the skill). Absent or `[]` means *no* custom
+prefixes — only pure Optics passes. The `OPTICS_ALLOWED_PREFIXES` env var
+(comma/space separated) overrides the config per run.
+
+`mode` is a permissiveness ladder (env `OPTICS_MODE` overrides per run):
+
+- **`optics-only`** — pure Optics or fail. Only real Optics classes and `--op-*`
+  tokens; no custom prefixes, no custom properties, no token redefinition.
+- **`prefixed`** (default) — `optics-only` plus the configured prefixes as
+  *names* for HTML classes (`bk-card`) and custom properties (`--bk-rail`).
+  Values stay pure Optics everywhere — no raw values. A custom property may only
+  be *used* where Optics has no token (ungated layout props), e.g. to name a
+  computed size: `--bk-rail: calc(60 * var(--op-size-unit)); width: var(--bk-rail)`.
+  Token-backed properties (color, padding, font, …) must reference the `--op-*`
+  token **directly** — aliasing a token through a custom property is rejected.
+- **`theme`** — `prefixed` plus redefinition of a fixed set of Optics *seed*
+  tokens for brand/theme exploration, each value validated against that token's
+  Optics format: the H/S color channels (`--op-color-{primary,neutral,alerts-*}-{h,s}`),
+  `--op-font-family[-alt]`, `--op-letter-spacing-{label,navigation}`, and
+  `--op-input-height-*`. Everything derived from them (color steps, spacing,
+  radius, shadows) stays locked.
+
+There is no raw-value escape hatch in any mode. (The older boolean
+`classnameStrict` still works: `true` → `optics-only`, `false` → `prefixed`.)
 
 Pairs with the `optics-context` and `bem-structure` skills.

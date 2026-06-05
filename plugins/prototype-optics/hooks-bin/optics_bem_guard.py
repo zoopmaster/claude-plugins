@@ -28,10 +28,10 @@ import re
 import sys
 from html.parser import HTMLParser
 
+from _optics_config import resolve_prefixes
+
 GATED_EXTENSIONS = (".html", ".htm")
-CONFIG_FILE = ".claude/optics-guard.json"
 BUNDLE = "vendor/optics.css"
-DEFAULT_PREFIXES = ("gx", "demo", "bk")
 VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input",
         "link", "meta", "param", "source", "track", "wbr"}
 SELECTOR_CLASS = re.compile(r"\.(-?[A-Za-z_][\w-]*)")
@@ -52,14 +52,8 @@ def load_defined_classes(repo_root):
 
 
 def allowed_prefixes(repo_root):
-    try:
-        cfg = json.load(open(os.path.join(repo_root, CONFIG_FILE), encoding="utf-8"))
-        ps = cfg.get("allowedPrefixes")
-        if isinstance(ps, list) and ps:
-            return tuple(str(p).rstrip("-") + "-" for p in ps)
-    except (OSError, ValueError):
-        pass
-    return tuple(p + "-" for p in DEFAULT_PREFIXES)
+    # Class-name form: `bk-`. Shared resolver owns the parse + defaults.
+    return tuple(p + "-" for p in resolve_prefixes(repo_root))
 
 
 class BemChecker(HTMLParser):

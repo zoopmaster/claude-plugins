@@ -38,7 +38,7 @@ The hooks are already active; setup only drops the **project-specific** files th
 guards read. Copy the plugin's bundled `scaffold/` into the project root:
 
 ```
-.claude/optics-guard.json          # { classnameStrict, allowedPrefixes }
+.claude/optics-guard.json          # { mode } — allowedPrefixes is chosen below, not shipped
 .claude/optics-class-allow.txt     # extra real-Optics classes the bundle can't expose
 tokens/                            # token source the value guard parses (--op-* set)
 vendor/optics.css                  # full Optics bundle (tokens + components) the classname guard parses
@@ -54,6 +54,18 @@ To install in this project:
 3. If the project already vendors `@rolemodel/optics`, regenerate the bundle from
    it: `node tools/build-optics.js node_modules/@rolemodel/optics` (or the path to
    any Optics checkout). Otherwise the shipped `vendor/optics.css` is used as-is.
+4. **Choose the project's custom prefix** — the scaffold ships none, so do not
+   assume one (never default to `bk`). In priority order:
+   1. **Detect the dominant existing pattern.** Scan the project's tracked
+      HTML/CSS for a recurring non-Optics class/custom-property prefix (e.g. a
+      consistent `xx-`/`xxx-` already in use). If one clearly dominates, use it —
+      even if it's three letters.
+   2. **Otherwise propose a short (preferably two-letter) candidate** derived
+      from the product/project name.
+   3. **Confirm with the user**, then write it to `allowedPrefixes` in
+      `.claude/optics-guard.json` (e.g. `{ "mode": "prefixed", "allowedPrefixes": ["bk"] }`).
+   Until a prefix is set, only pure Optics classes/properties pass — prefixed
+   names are blocked, which is the intended signal to configure one.
 
 ## Authoring prototypes
 
@@ -61,14 +73,22 @@ To install in this project:
   classes (`btn`, `card`, `sidebar`, `badge`, `avatar`, `text-pair`, `table`,
   `modal`, `material-symbols-outlined`, …) and layout utilities (`flex`, `gap-*`,
   `app-with-sidebar`, …).
-- For custom styling Optics has no class for, use **your prefix** (configure
-  `allowedPrefixes` in `.claude/optics-guard.json`, e.g. `["bk"]`). The same
-  prefix namespaces both class names (`bk-card`) and any custom property that
-  holds a genuinely-fixed raw value (`--bk-x: 320px`). Follow **bem-structure**
-  for block/element/modifier naming, and prefer overriding a single-instance
-  Optics slot over inventing a parallel block.
-- Strict mode: set `"classnameStrict": true` to forbid even prefixed classes
-  (pure Optics only). Env `OPTICS_CLASSNAME_STRICT=1`/`0` overrides per run.
+- For custom styling Optics has no class for, use **your project's prefix**
+  (chosen at setup and stored in `allowedPrefixes`; the scaffold ships none).
+  The same prefix namespaces both class names (`bk-card`) and custom properties. Values
+  are pure Optics in every mode — no raw values. On token-backed properties
+  (color, padding, font, …) reference the `--op-*` token **directly**; a custom
+  property may only be used where Optics has no token (ungated layout props),
+  to name a computed size: `--bk-rail: calc(60 * var(--op-size-unit)); width:
+  var(--bk-rail)`. Follow **bem-structure** for block/element/modifier naming,
+  and prefer overriding a single-instance Optics slot over inventing a parallel
+  block.
+- Modes (`"mode"` in `.claude/optics-guard.json`, env `OPTICS_MODE` overrides):
+  `"optics-only"` forbids even prefixed classes/properties (pure Optics only);
+  `"prefixed"` (default) allows the prefixes as names; `"theme"` additionally
+  lets you redefine Optics seed tokens (H/S color channels, font families,
+  letter-spacing, input heights) for brand exploration, each value checked
+  against its Optics format.
 
 ## Companion skills
 

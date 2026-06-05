@@ -27,7 +27,8 @@ def run(html, tool="Write", path="prototypes/x.html"):
     else:
         tool_input = {"file_path": path, "content": html}
     payload = {"tool_name": tool, "tool_input": tool_input}
-    env = dict(os.environ, CLAUDE_PROJECT_DIR=SCAFFOLD)
+    env = dict(os.environ, CLAUDE_PROJECT_DIR=SCAFFOLD,
+               OPTICS_ALLOWED_PREFIXES="bk")
     p = subprocess.run([sys.executable, HOOK], input=json.dumps(payload),
                        capture_output=True, text=True, env=env)
     return p.returncode, p.stderr

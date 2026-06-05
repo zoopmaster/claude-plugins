@@ -12,6 +12,14 @@ Mechanically enforces, on every Write/Edit/MultiEdit to a .css/.scss/.html file:
   3. SURFACE / ON-SURFACE PAIRING — text on a surface background must use that
      surface's derived `-on-` foreground token (or its `-alt`).
 
+Values are pure Optics in EVERY mode — there is no raw-value escape hatch. A
+custom property is a name, not a place to stash a raw literal: a prefixed
+`--bk-*` property may exist (in `prefixed`/`theme` mode) but its value must still
+resolve to Optics tokens. The `mode` knob (see _optics_config) only changes which
+custom-property NAMES are allowed and whether the fixed set of Optics SEED tokens
+(H/S channels, font families, letter-spacing, input heights) may be redefined —
+and a redefinition must match that token's Optics value format.
+
 Block mechanism: exit code 2 -> the write never lands; stderr is fed back to
 Claude to correct, and it iterates until compliant.
 
@@ -23,6 +31,8 @@ import json
 import os
 import re
 import sys
+
+from _optics_config import load_config, resolve_mode, resolve_prefixes
 
 # --------------------------------------------------------------------------- #
 # Config / policy (see repo README for the decisions behind these)
@@ -344,7 +354,13 @@ def has_raw_color(value):
 
 
 def bad_vars(value, category, defined):
-    """Return (undefined, miscategorized) lists of var() refs on this value."""
+    """Return (undefined, miscategorized) lists of var() refs on this value.
+
+    A token-backed property must reference an --op-* token of the matching
+    category DIRECTLY — not via a custom-property alias. So any non-op var
+    (var(--bk-pad), var(--foo)) on a categorized property is rejected: use the
+    Optics token. Custom properties are only usable where there is no category
+    (ungated layout props), which never reach this check."""
     undefined, miscat = [], []
     for name in VAR_RE.findall(value):
         if not name.startswith("--op-"):
@@ -370,39 +386,156 @@ def value_tokens_only(value):
     return True
 
 
-# Custom properties are the sanctioned home for a genuinely-fixed raw value,
-# but only when namespaced with an allowed prefix (the SAME prefixes used for
-# your class names, configured in .claude/optics-guard.json -> "allowedPrefixes").
-# `--op-` (Optics' own) is always allowed. A raw length anywhere else — even on
-# an "ungated" layout property like width/max-width/flex — is rejected.
-# Recomputed per run in main() from config; this is the back-compat default.
-ALLOWED_RAW_PREFIXES = ("--op-", "--gx-", "--demo-", "--bk-")
-DEFAULT_PREFIXES = ("gx", "demo", "bk")
-CONFIG_FILE = ".claude/optics-guard.json"
+# Custom-property prefixes that may NAME a property (e.g. `--bk-pad`). These are
+# the SAME prefixes used for class names (.claude/optics-guard.json ->
+# "allowedPrefixes"). A prefixed name is allowed in prefixed/theme mode, but its
+# VALUE must still be pure Optics — the prefix is a namespace, not a raw-value
+# escape hatch.
 
 
-def allowed_raw_prefixes(repo_root):
-    """Custom-property prefixes that may hold raw values: --op- plus each
-    configured class prefix as --<prefix>-."""
-    prefixes = DEFAULT_PREFIXES
-    try:
-        cfg = json.load(open(os.path.join(repo_root, CONFIG_FILE), encoding="utf-8"))
-        ps = cfg.get("allowedPrefixes")
-        if isinstance(ps, list) and ps:
-            prefixes = tuple(str(p).rstrip("-") for p in ps)
-    except (OSError, ValueError):
-        pass
-    return ("--op-",) + tuple(f"--{p}-" for p in prefixes)
+def custom_prefixes(repo_root, cfg=None):
+    """Custom-property name prefixes, as --<prefix>-, from "allowedPrefixes"."""
+    return tuple(f"--{p}-" for p in resolve_prefixes(repo_root, cfg))
 
 
-def check_declaration(prop, value, defined):
+# --------------------------------------------------------------------------- #
+# Mode-3 (theme) redefinable SEED tokens + per-token value-format validators.
+# Only these --op-* tokens may be redefined, and only in `theme` mode; the new
+# value must match the Optics format for that token. Everything else derived
+# from them (color steps, spacing, radius, shadows) stays locked in every mode.
+# --------------------------------------------------------------------------- #
+
+_SEED_COLOR_FAMILIES = ("primary", "neutral", "alerts-danger", "alerts-notice",
+                        "alerts-warning", "alerts-info")
+_SEED_INPUT_HEIGHTS = ("small", "medium", "large", "x-large")
+
+SEED_TOKENS = {}
+for _fam in _SEED_COLOR_FAMILIES:
+    SEED_TOKENS[f"--op-color-{_fam}-h"] = "hue"
+    SEED_TOKENS[f"--op-color-{_fam}-s"] = "percent"
+SEED_TOKENS["--op-font-family"] = "family"
+SEED_TOKENS["--op-font-family-alt"] = "family"
+SEED_TOKENS["--op-letter-spacing-label"] = "length"
+SEED_TOKENS["--op-letter-spacing-navigation"] = "length"
+for _h in _SEED_INPUT_HEIGHTS:
+    SEED_TOKENS[f"--op-input-height-{_h}"] = "length"
+
+# Bare number only: Optics composes the hue channel inside hsl(), where a `deg`
+# suffix would break the color. Unambiguous (no overlapping quantifiers) so it
+# can't backtrack quadratically on a long digit run.
+_HUE_RE = re.compile(r"^-?\d+(\.\d+)?$")
+_PERCENT_RE = re.compile(r"^\d*\.?\d+%$")
+_LENGTH_FULL_RE = re.compile(
+    r"^-?\d*\.?\d+(px|rem|em|pt|pc|cm|mm|in|ex|ch|q)$", re.IGNORECASE)
+
+
+def _validate_hue(prop, value):
+    v = value.strip()
+    if not _HUE_RE.match(v):
+        return (f"`{prop}` must be a bare hue number 0–360 (e.g. 216), matching "
+                f"Optics. Got `{value}`.")
+    num = float(re.match(r"-?\d*\.?\d+", v).group())
+    if not 0 <= num <= 360:
+        return f"`{prop}` hue must be in 0–360. Got `{value}`."
+    return None
+
+
+def _validate_percent(prop, value):
+    if not _PERCENT_RE.match(value.strip()):
+        return (f"`{prop}` must be a percentage (e.g. 58%), matching Optics. "
+                f"Got `{value}`.")
+    return None
+
+
+def _validate_length(prop, value):
+    v = value.strip().lower()
+    if v in ("0", "normal") or _LENGTH_FULL_RE.match(v):
+        return None
+    return (f"`{prop}` must be a single length (e.g. 0.4rem), matching Optics. "
+            f"Got `{value}`.")
+
+
+def _validate_family(prop, value):
+    if has_raw_color(value) or LENGTH_RE.search(value) or not re.search(
+            r"[A-Za-z]", value):
+        return (f"`{prop}` must be a font-family list (e.g. 'Noto Sans', "
+                f"sans-serif). Got `{value}`.")
+    return None
+
+
+SEED_VALIDATORS = {
+    "hue": _validate_hue,
+    "percent": _validate_percent,
+    "length": _validate_length,
+    "family": _validate_family,
+}
+
+# Every seed kind must have a validator, or check_optics_property would KeyError
+# at block-time on a redefinition. Fail loudly at import instead.
+assert set(SEED_TOKENS.values()) <= set(SEED_VALIDATORS), (
+    "SEED_TOKENS references a kind with no SEED_VALIDATORS entry")
+
+
+def check_optics_property(prop, value, defined, mode, is_def_file):
+    """A declaration whose property is itself an --op-* name (a redefinition)."""
+    if is_def_file:
+        return None  # canonical token-definition files own these
+    if prop not in defined:
+        return (f"`{prop}` is not a known Optics token; you cannot define new "
+                f"--op-* tokens. Use an allowed prefix (e.g. --bk-).")
+    if mode != "theme":
+        return (f"redefining the Optics token `{prop}` is only allowed in "
+                f"`theme` mode (set \"mode\": \"theme\").")
+    if prop not in SEED_TOKENS:
+        return (f"`{prop}` is a derived/locked Optics token and may not be "
+                f"redefined. Only seed tokens are redefinable: H/S color "
+                f"channels, font families, letter-spacing, input heights.")
+    return SEED_VALIDATORS[SEED_TOKENS[prop]](prop, value)
+
+
+def pure_optics_value_error(prop, value, defined):
+    """A value that must contain only Optics tokens / escape keywords — no raw
+    color/length/time literals. Used for prefixed custom properties."""
+    if has_raw_color(value):
+        return (f"`{prop}` holds a raw color. A custom property must resolve to "
+                f"Optics tokens, e.g. var(--op-color-primary-base).")
+    m = LENGTH_RE.search(value)
+    if m:
+        return (f"`{prop}` holds raw length `{m.group(0)}`. Use Optics tokens or "
+                f"the size scale calc(N * var(--op-size-unit)).")
+    if TIME_RE.search(value):
+        return (f"`{prop}` holds a raw time value. Use an Optics transition/"
+                f"animation token.")
+    und, _ = bad_vars(value, None, defined)
+    if und:
+        return f"`{prop}` references undefined Optics token(s): {', '.join(und)}."
+    return None
+
+
+def check_custom_property(prop, value, defined, mode, prefixes, is_def_file):
+    """A custom property whose name is not --op-* (e.g. --bk-pad or --foo)."""
+    if is_def_file:
+        return None
+    if mode == "optics-only":
+        return (f"custom property `{prop}` is not allowed in `optics-only` mode "
+                f"(pure Optics only).")
+    if not prop.startswith(prefixes):
+        allowed = "/".join(p + "*" for p in prefixes) or "(none configured)"
+        return (f"custom property `{prop}` must use an allowed prefix "
+                f"({allowed}).")
+    return pure_optics_value_error(prop, value, defined)
+
+
+def check_declaration(prop, value, defined, mode, prefixes, is_def_file):
     """Return an error string for a single declaration, or None if clean."""
+    if prop.startswith("--op-"):
+        return check_optics_property(prop, value, defined, mode, is_def_file)
+    if prop.startswith("--"):
+        return check_custom_property(prop, value, defined, mode, prefixes,
+                                     is_def_file)
+
     category = PROP_CATEGORY.get(prop)
     low = value.lower().strip()
-
-    # A namespaced custom property may hold raw values (the extraction point).
-    if prop.startswith(ALLOWED_RAW_PREFIXES):
-        return None
 
     # Shorthands: scan only for raw color + raw length literals.
     if prop in SHORTHAND_PROPS:
@@ -419,17 +552,14 @@ def check_declaration(prop, value, defined):
         return None
 
     if category is None:
-        # Ungated layout property (width, max-width, flex, top, …) or a
-        # non-namespaced custom property: forbid raw absolute/font-relative
-        # lengths. They must be extracted into a prefixed custom property, or
-        # (for widths) expressed with the Optics width scale calc(100% * n / d).
+        # Ungated layout property (width, max-width, flex, top, …): forbid raw
+        # absolute/font-relative lengths. There is no raw escape hatch — express
+        # the value with the Optics sizing scale, calc(N * var(--op-size-unit)).
         m = LENGTH_RE.search(value)
         if m:
             return (f"`{prop}` uses raw length `{m.group(0)}`. Use the Optics "
                     f"sizing scale — calc(N * var(--op-size-unit)) for a 4px-"
-                    f"multiple width/height — or extract the raw value into a "
-                    f"prefixed custom property (`--bk-x: {m.group(0)};` then "
-                    f"`{prop}: var(--bk-x);`).")
+                    f"multiple width/height (no raw values are allowed).")
         return None
 
     # Reference checks shared by all categories.
@@ -437,6 +567,12 @@ def check_declaration(prop, value, defined):
     if und:
         return f"`{prop}`: undefined Optics token(s): {', '.join(und)}."
     if mis:
+        custom = [m for m in mis if not m.startswith("--op-")]
+        if custom:
+            return (f"`{prop}` references custom propert"
+                    f"{'ies' if len(custom) > 1 else 'y'} {', '.join(custom)}; "
+                    f"on a token-backed property reference the Optics {category} "
+                    f"token directly (var(--op-...)) — do not alias it.")
         return (f"`{prop}` expects a {category} token but got: "
                 f"{', '.join(mis)}. Use a {category} token.")
 
@@ -517,11 +653,12 @@ def check_declaration(prop, value, defined):
     return None
 
 
-def check_block(selector, decls, defined):
+def check_block(selector, decls, defined, mode, prefixes, is_def_file):
     """Validate one rule block: per-declaration + on-surface pairing."""
     errors = []
     for prop, value in decls:
-        err = check_declaration(prop, value, defined)
+        err = check_declaration(prop, value, defined, mode, prefixes,
+                                is_def_file)
         if err:
             errors.append(f"  {selector or '<block>'} {{ {prop}: {value}; }}\n"
                           f"    -> {err}")
@@ -571,6 +708,23 @@ def get_blocks(path, content):
     return list(iter_blocks(content))
 
 
+DEFINITION_FILES = tuple(TOKEN_SOURCES) + ("tokens/optics-tokens.css",
+                                           "vendor/optics.css")
+
+
+def is_definition_file(path):
+    """Canonical token-definition files (the token sources + vendor bundle) own
+    the --op-* definitions, so they are exempt from the redefinition rules.
+
+    Matched on the FULL relative tail, not a `/tokens/` substring — otherwise any
+    file under a `tokens/` dir (e.g. `prototypes/tokens/x.css`) would silently
+    disable every redefinition/custom-property check and bypass the guard."""
+    norm = path.replace("\\", "/").lower()
+    if norm.startswith("./"):
+        norm = norm[2:]
+    return any(norm == d or norm.endswith("/" + d) for d in DEFINITION_FILES)
+
+
 def iter_write_payloads(tool_name, tool_input):
     """Yield content strings introduced by this tool call."""
     if tool_name == "Write":
@@ -595,8 +749,10 @@ def main():
         sys.exit(0)
 
     repo_root = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
-    global ALLOWED_RAW_PREFIXES
-    ALLOWED_RAW_PREFIXES = allowed_raw_prefixes(repo_root)
+    cfg = load_config(repo_root)
+    mode = resolve_mode(repo_root, cfg)
+    prefixes = custom_prefixes(repo_root, cfg)
+    is_def_file = is_definition_file(path)
     defined = load_tokens(repo_root)
     if not defined:
         # No token source found — fail open rather than block everything.
@@ -607,7 +763,9 @@ def main():
         if not content.strip():
             continue
         for selector, decls in get_blocks(path, content):
-            all_errors.extend(check_block(selector, decls, defined))
+            all_errors.extend(
+                check_block(selector, decls, defined, mode, prefixes,
+                            is_def_file))
 
     if all_errors:
         sys.stderr.write(

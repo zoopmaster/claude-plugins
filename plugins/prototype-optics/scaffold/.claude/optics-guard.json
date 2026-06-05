@@ -1,4 +1,3 @@
 {
-  "classnameStrict": false,
-  "allowedPrefixes": ["gx", "demo", "bk"]
+  "mode": "prefixed"
 }

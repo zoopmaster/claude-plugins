@@ -26,10 +26,12 @@ def run(html, path="prototypes/x.html", tool="Write", strict=False):
     else:
         tool_input = {"file_path": path, "content": html}
     payload = {"tool_name": tool, "tool_input": tool_input}
-    # Force the env toggle explicitly so tests don't depend on the persisted
+    # Force the mode explicitly so tests don't depend on the persisted
     # .claude/optics-guard.json config (env overrides config in the hook).
+    # optics-only is the strict floor; prefixed allows the class prefixes.
     env = dict(os.environ, CLAUDE_PROJECT_DIR=SCAFFOLD,
-               OPTICS_CLASSNAME_STRICT="1" if strict else "0")
+               OPTICS_ALLOWED_PREFIXES="gx,demo,bk",
+               OPTICS_MODE="optics-only" if strict else "prefixed")
     p = subprocess.run([sys.executable, HOOK], input=json.dumps(payload),
                        capture_output=True, text=True, env=env)
     return p.returncode, p.stderr
