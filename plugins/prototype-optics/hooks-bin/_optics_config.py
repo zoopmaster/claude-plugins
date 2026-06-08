@@ -41,22 +41,27 @@ def load_config(repo_root):
 
 
 def resolve_mode(repo_root, cfg=None):
-    # Precedence: env overrides config (per-run override), and the new OPTICS_MODE
-    # beats the legacy OPTICS_CLASSNAME_STRICT env; both env knobs beat config.
+    # Precedence, highest first:
+    #   1. OPTICS_MODE env        — the supported per-run override
+    #   2. config "mode"          — the explicit, current config key
+    #   3. OPTICS_CLASSNAME_STRICT env  — deprecated per-run override (legacy)
+    #   4. config classnameStrict — deprecated persisted boolean (legacy)
+    # An explicit `mode` (env or config) always beats the deprecated knobs, so a
+    # stale OPTICS_CLASSNAME_STRICT can't silently downgrade a chosen mode. The
+    # legacy env still beats the legacy config for fully-legacy setups.
     env = os.environ.get("OPTICS_MODE", "").strip().lower()
     if env in MODES:
         return env
-    senv = os.environ.get("OPTICS_CLASSNAME_STRICT", "").strip().lower()
-    if senv in _TRUE:
-        return "optics-only"
-    if senv in _FALSE:
-        return "prefixed"
     if cfg is None:
         cfg = load_config(repo_root)
     m = str(cfg.get("mode", "")).strip().lower()
     if m in MODES:
         return m
-    # Back-compat with the original classnameStrict boolean.
+    senv = os.environ.get("OPTICS_CLASSNAME_STRICT", "").strip().lower()
+    if senv in _TRUE:
+        return "optics-only"
+    if senv in _FALSE:
+        return "prefixed"
     if "classnameStrict" in cfg:
         return "optics-only" if cfg.get("classnameStrict") else "prefixed"
     return "prefixed"
@@ -72,13 +77,16 @@ def resolve_prefixes(repo_root, cfg=None):
     short candidate, confirmed with the user; see the prototype-optics skill),
     not assumed. Each guard formats the result: `bk-` for class names, `--bk-`
     for custom-property names."""
+    # Normalize each entry and drop any that collapse to empty (e.g. a lone
+    # "-"/"--"): a dash-only entry would otherwise become a wildcard "-" prefix
+    # that matches every dash-led name and weaken the classname guard.
     env = os.environ.get("OPTICS_ALLOWED_PREFIXES", "")
     if env.strip():
-        return tuple(p.strip().rstrip("-") for p in re.split(r"[,\s]+", env)
-                     if p.strip())
+        return tuple(s for s in (p.strip().rstrip("-")
+                                 for p in re.split(r"[,\s]+", env)) if s)
     if cfg is None:
         cfg = load_config(repo_root)
     ps = cfg.get("allowedPrefixes")
     if isinstance(ps, list) and ps:
-        return tuple(str(p).rstrip("-") for p in ps if str(p).strip())
+        return tuple(s for s in (str(p).strip().rstrip("-") for p in ps) if s)
     return ()

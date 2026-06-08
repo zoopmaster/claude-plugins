@@ -15,7 +15,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOOK = os.path.join(REPO, "hooks-bin", "optics_guard.py")
 SCAFFOLD = os.path.join(REPO, "scaffold")
 sys.path.insert(0, os.path.join(REPO, "hooks-bin"))
-from _optics_config import resolve_mode  # noqa: E402
+from _optics_config import resolve_mode, resolve_prefixes  # noqa: E402
 
 
 def run(css, path="prototypes/x.css", tool="Write", mode=None):
@@ -119,6 +119,9 @@ CASES = [
      ".a { color: red; }", True, "prototypes/tokens/x.css"),
     ("redefine in non-canonical tokens/ subpath still BLOCKED",
      ":root { --op-space-medium: 2rem; }", True, "prototypes/tokens/x.css"),
+    ("canonical basename under a nested dir is NOT exempt (depth bypass)",
+     ":root { --op-space-medium: 2rem; }", True,
+     "prototypes/tokens/optics-tokens.css"),
     # HTML extraction path (extract_html_css): <style> blocks + inline style=
     ("HTML <style> raw hex",
      "<style>.a { color: #f00; }</style>", True, "prototypes/x.html"),
@@ -198,7 +201,8 @@ MODE_CASES = [
     ("legacy classnameStrict:false -> prefixed", {}, {"classnameStrict": False}, "prefixed"),
     ("config mode wins over classnameStrict", {}, {"mode": "theme", "classnameStrict": True}, "theme"),
     ("OPTICS_MODE env beats config", {"OPTICS_MODE": "optics-only"}, {"mode": "theme"}, "optics-only"),
-    ("legacy env beats config (back-compat)", {"OPTICS_CLASSNAME_STRICT": "1"}, {"mode": "prefixed"}, "optics-only"),
+    ("legacy env beats legacy config classnameStrict", {"OPTICS_CLASSNAME_STRICT": "1"}, {"classnameStrict": False}, "optics-only"),
+    ("config mode beats stale legacy env (no silent downgrade)", {"OPTICS_CLASSNAME_STRICT": "0"}, {"mode": "optics-only"}, "optics-only"),
     ("OPTICS_MODE beats legacy env", {"OPTICS_MODE": "theme", "OPTICS_CLASSNAME_STRICT": "1"}, {}, "theme"),
     ("default when nothing set", {}, {}, "prefixed"),
     ("invalid OPTICS_MODE falls through to default", {"OPTICS_MODE": "bogus"}, {}, "prefixed"),
@@ -226,6 +230,43 @@ def _run_mode_cases():
     return passed, failed
 
 
+# resolve_prefixes: env (OPTICS_ALLOWED_PREFIXES) > config allowedPrefixes > ().
+# Each case: (name, env value or None, config dict, expected tuple).
+PREFIX_CASES = [
+    ("env single", "bk", {}, ("bk",)),
+    ("env strips trailing dash", "bk-", {}, ("bk",)),
+    ("env comma+space split, drops empties", "gx, ,bk", {}, ("gx", "bk")),
+    ("env whitespace split", "gx bk", {}, ("gx", "bk")),
+    ("env dash-only collapses to none", "-", {}, ()),
+    ("env double-dash collapses to none", "--", {}, ()),
+    ("env beats config", "gx", {"allowedPrefixes": ["bk"]}, ("gx",)),
+    ("config path when no env", None, {"allowedPrefixes": ["bk"]}, ("bk",)),
+    ("config empty list -> none", None, {"allowedPrefixes": []}, ()),
+    ("config dash-only -> none", None, {"allowedPrefixes": ["-"]}, ()),
+    ("absent everywhere -> none", None, {}, ()),
+]
+
+
+def _run_prefix_cases():
+    passed = failed = 0
+    saved = os.environ.get("OPTICS_ALLOWED_PREFIXES")
+    try:
+        for name, env, cfg, expected in PREFIX_CASES:
+            os.environ.pop("OPTICS_ALLOWED_PREFIXES", None)
+            if env is not None:
+                os.environ["OPTICS_ALLOWED_PREFIXES"] = env
+            got = resolve_prefixes(".", cfg)
+            ok = got == expected
+            passed += ok
+            failed += not ok
+            print(f"[{'PASS' if ok else 'FAIL'}] prefix: {name}  (got={got}, want={expected})")
+    finally:
+        os.environ.pop("OPTICS_ALLOWED_PREFIXES", None)
+        if saved is not None:
+            os.environ["OPTICS_ALLOWED_PREFIXES"] = saved
+    return passed, failed
+
+
 def main():
     passed = failed = 0
     for cases, mode, label in (
@@ -235,9 +276,10 @@ def main():
         p, f = _run_cases(cases, mode, label)
         passed += p
         failed += f
-    p, f = _run_mode_cases()
-    passed += p
-    failed += f
+    for runner in (_run_mode_cases, _run_prefix_cases):
+        p, f = runner()
+        passed += p
+        failed += f
     print(f"\n{passed} passed, {failed} failed")
     sys.exit(1 if failed else 0)
 

@@ -522,7 +522,8 @@ def check_custom_property(prop, value, defined, mode, prefixes, is_def_file):
     if not prop.startswith(prefixes):
         allowed = "/".join(p + "*" for p in prefixes) or "(none configured)"
         return (f"custom property `{prop}` must use an allowed prefix "
-                f"({allowed}).")
+                f"({allowed}) — configure it via \"allowedPrefixes\" in "
+                f".claude/optics-guard.json.")
     return pure_optics_value_error(prop, value, defined)
 
 
@@ -712,17 +713,22 @@ DEFINITION_FILES = tuple(TOKEN_SOURCES) + ("tokens/optics-tokens.css",
                                            "vendor/optics.css")
 
 
-def is_definition_file(path):
+def is_definition_file(path, repo_root):
     """Canonical token-definition files (the token sources + vendor bundle) own
     the --op-* definitions, so they are exempt from the redefinition rules.
 
-    Matched on the FULL relative tail, not a `/tokens/` substring — otherwise any
-    file under a `tokens/` dir (e.g. `prototypes/tokens/x.css`) would silently
-    disable every redefinition/custom-property check and bypass the guard."""
+    Matched on the EXACT path relative to repo_root — not a `/tokens/` substring
+    and not a tail `endswith`, either of which would exempt a like-named copy at
+    any depth (e.g. `prototypes/tokens/optics-tokens.css`) and silently disable
+    every redefinition/custom-property check. Tokens are only ever loaded from
+    the root `tokens/` + `vendor/`, so only those exact paths may be exempt."""
     norm = path.replace("\\", "/").lower()
-    if norm.startswith("./"):
-        norm = norm[2:]
-    return any(norm == d or norm.endswith("/" + d) for d in DEFINITION_FILES)
+    root = repo_root.replace("\\", "/").lower().rstrip("/")
+    if root and norm.startswith(root + "/"):
+        rel = norm[len(root) + 1:]
+    else:
+        rel = norm[2:] if norm.startswith("./") else norm
+    return rel in DEFINITION_FILES
 
 
 def iter_write_payloads(tool_name, tool_input):
@@ -752,7 +758,7 @@ def main():
     cfg = load_config(repo_root)
     mode = resolve_mode(repo_root, cfg)
     prefixes = custom_prefixes(repo_root, cfg)
-    is_def_file = is_definition_file(path)
+    is_def_file = is_definition_file(path, repo_root)
     defined = load_tokens(repo_root)
     if not defined:
         # No token source found — fail open rather than block everything.

@@ -84,7 +84,7 @@ The suites run the guards against the bundled `scaffold/` as the project root
 (stdlib-only, no deps):
 
 ```
-python3 tests/run_tests.py            # value guard (72 cases)
+python3 tests/run_tests.py            # value guard (85 cases)
 python3 tests/run_classname_tests.py  # classname guard (19 cases)
 python3 tests/run_bem_tests.py        # BEM structure guard (14 cases)
 ```

@@ -158,7 +158,8 @@ def main():
             allowed = "/".join(p + "*" for p in prefixes) or "(none configured)"
             lines.append(
                 "\nClasses must be real Optics classes (see vendor/optics.css) or "
-                f"use an allowed prefix ({allowed}, set in {CONFIG_FILE}). Add "
+                f"use an allowed prefix ({allowed}). Configure your prefix by "
+                f'adding "allowedPrefixes": ["bk"] to {CONFIG_FILE}, or add '
                 f"specific names to {EXTRA_ALLOW_FILE}.")
         sys.stderr.write("\n".join(lines) + "\n")
         sys.exit(2)

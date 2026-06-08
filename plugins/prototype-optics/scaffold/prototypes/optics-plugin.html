@@ -40,7 +40,7 @@
       <p class="text-pair__subtitle">Build browser prototypes that can't drift off the RoleModel Optics design system.</p>
     </header>
 
-    <p>Three deterministic <code>PreToolUse</code> hooks run on every <code>Write</code>/<code>Edit</code>. Anything off-system is hard-blocked (exit 2) and the reason is fed back to the agent to fix &mdash; so a non-compliant file can't be saved.</p>
+    <p>Three deterministic <code>PreToolUse</code> hooks check Claude's edits (the value and classname guards on every <code>Write</code>/<code>Edit</code>; the BEM guard on <code>Write</code>). Anything off-system is hard-blocked (exit 2) and the reason is fed back to the agent to fix &mdash; so a non-compliant file can't be saved.</p>
 
     <h2>The three guards</h2>
     <div class="flex flex-wrap gap-md">
