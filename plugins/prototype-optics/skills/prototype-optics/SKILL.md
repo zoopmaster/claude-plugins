@@ -12,7 +12,11 @@ deterministic hooks run on every `Write`/`Edit`/`MultiEdit` and hard-block
 - **Value guard** (`optics_guard.py`): colors and token-backed properties must be
   `var(--op-*)`; raw hex/`rgb()`/named colors and raw lengths (`12px`, `1.5rem`)
   are rejected on *every* property; category correctness; surface ↔ on-surface
-  text pairing. Fixed sizes use the Optics sizing scale `calc(N * var(--op-size-unit))`.
+  text pairing. Spacing (`padding`/`margin`/`gap`) uses the named space scale
+  `var(--op-space-*)` — pick the step that matches the value (e.g. 8px →
+  `var(--op-space-x-small)`, 28px → `var(--op-space-2x-large)`). The sizing scale
+  `calc(N * var(--op-size-unit))` is for large fixed sizes (widths, modal
+  dimensions), not spacing; use it only when a value has no `--op-space-*` step.
 - **Classname guard** (`optics_classname_guard.py`): every `class="…"` must be a
   real Optics class (parsed from `vendor/optics.css`), carry a configured prefix,
   or be listed in `.claude/optics-class-allow.txt`. Typos and invented classes

@@ -8,8 +8,22 @@ own; cross-references resolve within this file.
 ### Optics token
 A design-system variable (the `--op-*` family) that is the only sanctioned
 source for a color or dimension. Raw literals — hex, `rgb()`, named colors, fixed
-pixel/rem lengths — are never accepted where a token belongs; a size with no
-token uses the sizing scale (a multiple of the base size unit) instead.
+pixel/rem lengths — are never accepted where a token belongs. Spacing
+(`padding`/`margin`/`gap`) uses the named space scale (`--op-space-*`); the sizing
+scale (a multiple of the base size unit) is for large fixed sizes like widths and
+modal dimensions, and is the fallback only for a value with no named scale step.
+
+### Space scale
+The named set of spacing tokens (`--op-space-3x-small` … `--op-space-4x-large`)
+that expresses the design system's spacing rhythm. It is the sanctioned source for
+`padding`/`margin`/`gap`; a spacing value that lands on a step uses the named token
+rather than a raw multiple.
+
+### Sizing scale
+A size expressed as a multiple of the base size unit (`calc(N * var(--op-size-unit))`),
+used for large fixed dimensions like widths and modal sizes. Distinct from the
+space scale: the size unit is not a spacing token, and reaching for it on
+`padding`/`margin`/`gap` is a drift even though it resolves to a valid value.
 
 ### Seed token
 The small set of Optics tokens the rest of the scale is *derived* from — the
